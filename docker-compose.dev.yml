@@ -1,0 +1,69 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "1m"
+    max-file: "1"
+    tag: "{{.Name}}"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: !override debug.env
+    environment:
+      DEBUG_MODE: 1
+      POSTGRES_HOST: postgres
+    command: !override >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app --reload-include *.py --reload-exclude "migrations/versions/*,__pycache__/*,.git/*"
+    ports:
+      - "8000:8000"
+    labels: !override
+      logging: "promtail"
+      logging_jobname: "containerlogs"
+      traefik.enable: "true"
+      traefik.http.routers.gateway.rule: "PathPrefix(`/api`)"
+      traefik.http.routers.gateway.entrypoints: "web"
+      traefik.http.services.gateway.loadbalancer.server.port: "8000"
+
+  web:
+    build:
+      target: dev
+    env_file:
+      - debug.env
+      - ./web/.env
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    labels: !override
+      logging: "promtail"
+      logging_jobname: "containerlogs"
+      traefik.enable: "true"
+      traefik.http.routers.frontend.rule: "PathPrefix(`/`)"
+      traefik.http.routers.frontend.entrypoints: "web"
+      traefik.http.services.frontend.loadbalancer.server.port: "5173"
+
+  migrations:
+    env_file:
+      - debug.env
+
+  postgres:
+    ports:
+      - "5432:5432"
+    env_file:
+      - debug.env
+
+  traefik:
+    env_file:
+      - debug.env
+    command: !override
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.dashboard=true
+      - --api.insecure=true
+    ports: !override
+      - "80:80"
+      - "8080:8080"

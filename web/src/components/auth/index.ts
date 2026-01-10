@@ -1,0 +1,1 @@
+export { YandexIDButton } from './YandexIDButton';
