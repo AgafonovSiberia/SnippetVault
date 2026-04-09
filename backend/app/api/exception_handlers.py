@@ -6,6 +6,8 @@ from app.application.common.exceptions import (
     InvalidTokenError,
     ServiceUnavailableError,
     UserNotFoundError,
+    ResourceNotFoundError,
+    PermissionDeniedError,
 )
 
 
@@ -27,6 +29,18 @@ async def domain_exception_handler(request: Request, exc: Exception) -> JSONResp
     if isinstance(exc, UserNotFoundError):
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(exc)},
+        )
+
+    if isinstance(exc, ResourceNotFoundError):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": str(exc)},
+        )
+
+    if isinstance(exc, PermissionDeniedError):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
             content={"detail": str(exc)},
         )
 

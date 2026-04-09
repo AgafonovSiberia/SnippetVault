@@ -24,3 +24,15 @@ class ServiceUnavailableError(DomainException):
 
 class YandexServiceError(ServiceUnavailableError):
     pass
+
+
+class ResourceNotFoundError(DomainException):
+    """Ресурс не найден"""
+
+    pass
+
+
+class PermissionDeniedError(DomainException):
+    """Доступ запрещен"""
+
+    pass

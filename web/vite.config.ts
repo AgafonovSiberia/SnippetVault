@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
-// import basicSsl from '@vitejs/plugin-basic-ssl'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    // basicSsl(), // Включаем HTTPS для локальной разработки
+    basicSsl(), // Включаем HTTPS для локальной разработки
   ],
   resolve: {
     alias: {
@@ -23,7 +23,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // https: true, // Включаем HTTPS
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

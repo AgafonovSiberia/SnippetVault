@@ -1,13 +1,21 @@
 # 🔧 Инструкция по настройке Yandex ID
 
+## ⚠️ ВАЖНО: Требуется HTTPS!
+
+Yandex ID SDK **требует HTTPS** для корректной работы виджетов авторизации. Современные браузеры блокируют сторонние cookies (third-party cookies) для HTTP соединений, что приводит к ошибке `not_available` даже если вы авторизованы в Яндексе.
+
+**📖 Полная инструкция по настройке HTTPS:** См. файл [`YANDEX_HTTPS_SETUP.md`](./YANDEX_HTTPS_SETUP.md)
+
+---
+
 ## Проблема
-Виджет Yandex ID отображает ошибку "Refused to display in a frame" из-за несоответствия Redirect URI.
+Виджет Yandex ID не отображается (показывается fallback кнопка) из-за блокировки сторонних cookies в HTTP режиме.
 
 ## ✅ Решение
 
 ### Шаг 1: Обновите файл `web/.env`
 
-Убедитесь, что файл `web/.env` содержит:
+Убедитесь, что файл `web/.env` содержит **HTTPS** URL:
 
 ```env
 # API Configuration
@@ -15,12 +23,12 @@ VITE_API_URL=/api
 
 # Yandex ID Configuration
 VITE_YANDEX_CLIENT_ID=44d799edfaaa407eb79fb0eafed36a44
-VITE_YANDEX_REDIRECT_URI=http://localhost:5173/
+VITE_YANDEX_REDIRECT_URI=https://localhost:5173/
 ```
 
 **ВАЖНО:** 
+- Используйте **`https://localhost:5173/`**, а НЕ `http://`!
 - `VITE_YANDEX_REDIRECT_URI` должен совпадать с тем, что указано в консоли Yandex OAuth
-- Для локальной разработки используйте `http://localhost:5173/`
 - Обратите внимание на завершающий слеш `/`
 
 ### Шаг 2: Настройте приложение в Yandex OAuth
@@ -30,7 +38,7 @@ VITE_YANDEX_REDIRECT_URI=http://localhost:5173/
 3. Перейдите в раздел **"Платформы"** → **"Веб-сервисы"**
 4. В поле **"Callback URI"** добавьте:
    ```
-   http://localhost:5173/
+   https://localhost:5173/
    ```
 5. Сохраните изменения
 
@@ -79,7 +87,7 @@ if (iframe) {
 **Ожидаемый результат:**
 ```
 Client ID: 44d799edfaaa407eb79fb0eafed36a44
-Redirect URI: http://localhost:5173/
+Redirect URI: https://localhost:5173/
 ```
 
 ### Проверьте ошибки в консоли:
@@ -92,15 +100,17 @@ Redirect URI: http://localhost:5173/
 ## 📋 Checklist
 
 - [ ] В `web/.env` указан правильный `VITE_YANDEX_CLIENT_ID`
-- [ ] В `web/.env` указан `VITE_YANDEX_REDIRECT_URI=http://localhost:5173/`
-- [ ] В консоли Yandex OAuth добавлен Callback URI: `http://localhost:5173/`
+- [ ] В `web/.env` указан `VITE_YANDEX_REDIRECT_URI=https://localhost:5173/`
+- [ ] В консоли Yandex OAuth добавлен Callback URI: `https://localhost:5173/`
 - [ ] Dev-сервер перезапущен
 - [ ] Кэш браузера очищен
 - [ ] В консоли браузера нет ошибки "Refused to display in a frame"
 
 ## 🎯 Результат
 
-После выполнения всех шагов должна отобразиться **кнопка "Войти с Яндекс ID"** внутри iframe на странице авторизации.
+После выполнения всех шагов:
+- ✅ Если вы **залогинены в Яндексе** → отображается **Suggest Widget** с вашим аватаром
+- ✅ Если вы **НЕ залогинены** → отображается **Button Widget** или fallback кнопка
 
 ---
 

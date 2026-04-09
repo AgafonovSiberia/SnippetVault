@@ -5,19 +5,19 @@ from contextlib import asynccontextmanager
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.exception_handlers import domain_exception_handler
-from app.application.common.exceptions import DomainException
 
 from app.api import get_api_router
+from app.api.exception_handlers import domain_exception_handler
+from app.application.common.exceptions import DomainException
+from app.core.config import config
 from app.di import create_container
 
-API_PREFIX = '/api/'
 
-
-if os.getenv("DEBUG_MODE") == "1":
-    import pydevd
-
+def _setup_debugger() -> None:
+    if os.getenv("DEBUG_MODE") != "1":
+        return
     try:
+        import pydevd
         pydevd.settrace(
             "host.docker.internal",
             port=5678,
@@ -26,21 +26,13 @@ if os.getenv("DEBUG_MODE") == "1":
             overwrite_prev_trace=True,
             suspend=False,
         )
-    except TimeoutError:
-        pass
     except Exception:
         pass
 
-ORIGINS = [
-    "https://localhost:5173",
-    "https://127.0.0.1:5173",
-    "http://localhost:8000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173"
-]
-
 
 def create_app() -> FastAPI:
+    _setup_debugger()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -56,30 +48,33 @@ def create_app() -> FastAPI:
         finally:
             await container.close()
 
-    from app.core.config import config
+    app = FastAPI(
+        title=config.app.PROJECT_NAME,
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url=f"{config.app.API_V1_STR}/docs",
+        redoc_url=f"{config.app.API_V1_STR}/redoc",
+        openapi_url=f"{config.app.API_V1_STR}/openapi.json",
+    )
 
-    fastapi = FastAPI(title="SnippetVault",
-                      version="1.0.0",
-                      lifespan=lifespan,
-                      docs_url=f"{config.app.API_V1_STR}/docs",
-                      redoc_url=f"{config.app.API_V1_STR}/redoc",
-                      openapi_url=f"{config.app.API_V1_STR}/openapi.json")
-
-    fastapi.add_middleware(
+    app.add_middleware(
         CORSMiddleware,
-        allow_origins=ORIGINS,
+        allow_origins=config.app.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"],
     )
 
-    fastapi.include_router(get_api_router(), prefix=config.app.API_V1_STR)
-    setup_dishka(container, fastapi)
+    app.include_router(get_api_router(), prefix=config.app.API_V1_STR)
+    setup_dishka(container, app)
+    app.add_exception_handler(DomainException, domain_exception_handler)
 
-    fastapi.add_exception_handler(DomainException, domain_exception_handler)
+    @app.get("/health", tags=["System"], include_in_schema=False)
+    async def health() -> dict:
+        return {"status": "ok"}
 
-    return fastapi
+    return app
 
 
 app = create_app()

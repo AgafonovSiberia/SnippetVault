@@ -1,22 +1,25 @@
-from typing import Annotated, Any, AsyncGenerator
-from uuid import UUID
+from typing import Any, AsyncGenerator
 
-from dishka import AsyncContainer, Provider, Scope, from_context, make_async_container, provide
+from dishka import AsyncContainer, make_async_container
 from dishka.integrations.fastapi import FastapiProvider
-from fastapi import Request
+from dishka import Provider, Scope, provide
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from app.application.auth.auth_dto import UserDTO
+from app.infrastructure.repo.project_repo import ProjectRepo
+from app.infrastructure.repo.folder_repo import FolderRepo
+from app.infrastructure.repo.snippet_repo import SnippetRepo
+from app.infrastructure.repo.auth_repo import AuthRepo
 from app.application.auth.auth_service import AuthService
 from app.core.config import config
-from app.core.secure import decode_token
 from app.infrastructure.auth.providers import YandexOAuthProvider
 from app.infrastructure.database.db import session_factory
-from app.infrastructure.repo.auth_repo import AuthRepo
-from app.application.common.exceptions import AuthenticationError
+from app.application.project.project_service import ProjectService
+from app.application.project.folder_service import FolderService
+from app.application.project.snippet_service import SnippetService
+from app.api.auth_provider import AuthProvider
 
-CurrentUser = Annotated[UserDTO | None, "current_user"]
-AuthenticatedUser = Annotated[UserDTO, "authenticated_user"]
+# Реэкспортируем для роутеров
+from app.api.auth_provider import CurrentUser, AuthenticatedUser  # noqa: F401
 
 
 class DatabaseProvider(FastapiProvider):
@@ -41,60 +44,52 @@ class RepositoryProvider(FastapiProvider):
     async def get_auth_repo(self, session: AsyncSession) -> AuthRepo:
         return AuthRepo(session=session)
 
+    @provide(scope=Scope.REQUEST)
+    async def get_project_repo(self, session: AsyncSession) -> ProjectRepo:
+        return ProjectRepo(session=session)
+
+    @provide(scope=Scope.REQUEST)
+    async def get_folder_repo(self, session: AsyncSession) -> FolderRepo:
+        return FolderRepo(session=session)
+
+    @provide(scope=Scope.REQUEST)
+    async def get_snippet_repo(self, session: AsyncSession) -> SnippetRepo:
+        return SnippetRepo(session=session)
+
 
 class ServiceProvider(FastapiProvider):
     @provide(scope=Scope.REQUEST)
     async def get_auth_service(
-            self, auth_repo: AuthRepo, yandex_provider: YandexOAuthProvider
+        self, auth_repo: AuthRepo, yandex_provider: YandexOAuthProvider
     ) -> AuthService:
         return AuthService(auth_repo=auth_repo, yandex_provider=yandex_provider)
 
-
-class AuthProvider(FastapiProvider):
-    request = from_context(provides=Request, scope=Scope.REQUEST)
+    @provide(scope=Scope.REQUEST)
+    async def get_project_service(self, project_repo: ProjectRepo) -> ProjectService:
+        return ProjectService(project_repo=project_repo)
 
     @provide(scope=Scope.REQUEST)
-    async def get_current_user(
-            self, request: Request, auth_service: AuthService
-    ) -> CurrentUser:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return None
-
-        token = auth_header.removeprefix("Bearer ")
-        payload = decode_token(token)
-
-        if not payload or payload.get("type") != "access":
-            return None
-
-        user_id_str = payload.get("sub")
-        if not user_id_str:
-            return None
-
-        try:
-            user_id = UUID(user_id_str)
-        except ValueError:
-            return None
-
-        try:
-            user = await auth_service.get_current_user(user_id)
-            return user
-        except Exception:
-            return None
+    async def get_folder_service(
+        self, project_repo: ProjectRepo, folder_repo: FolderRepo
+    ) -> FolderService:
+        return FolderService(project_repo=project_repo, folder_repo=folder_repo)
 
     @provide(scope=Scope.REQUEST)
-    async def get_authenticated_user(self, user: CurrentUser) -> AuthenticatedUser:
-        if user is None:
-            raise AuthenticationError("Authentication required")
-        return user
+    async def get_snippet_service(
+        self, project_repo: ProjectRepo, folder_repo: FolderRepo, snippet_repo: SnippetRepo
+    ) -> SnippetService:
+        return SnippetService(
+            project_repo=project_repo,
+            folder_repo=folder_repo,
+            snippet_repo=snippet_repo,
+        )
 
 
 def create_container() -> AsyncContainer:
-    container = make_async_container(
+    return make_async_container(
         DatabaseProvider(),
         SettingsProvider(),
         RepositoryProvider(),
         ServiceProvider(),
         AuthProvider(),
     )
-    return container

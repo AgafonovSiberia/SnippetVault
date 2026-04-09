@@ -27,14 +27,27 @@ export const useAuth = (): UseAuthReturn => {
     useEffect(() => {
         const initAuth = async () => {
             try {
+                // Проверяем наличие токена
                 if (authService.isAuthenticated()) {
+                    // Сначала проверяем кеш
+                    const cachedUser = authService.getCachedUser();
+                    if (cachedUser) {
+                        // Если есть кеш - сразу используем его
+                        setUser(cachedUser);
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // Если кеша нет - запрашиваем с сервера
+                    // Если токен невалидный, перехватчик автоматически попытается обновить его
                     const userData = await authService.getCurrentUser();
                     setUser(userData);
                 }
             } catch (err) {
                 console.error('Failed to initialize auth:', err);
-                // Если не удалось получить пользователя, очищаем токен
-                authService.logout();
+                // Если не удалось получить пользователя даже после попытки refresh,
+                // токен будет очищен перехватчиком
+                setUser(null);
             } finally {
                 setIsLoading(false);
             }

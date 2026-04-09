@@ -3,16 +3,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
-    PROJECT_NAME: str = "Snippet Store"
+    PROJECT_NAME: str = "SnippetVault"
     API_V1_STR: str = "/api/v1"
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://localhost:5173",
+        "https://127.0.0.1:5173",
+        "http://localhost:8000",
+    ]
 
 
 class SecureSettings(BaseSettings):
     JWT_SECRET: str
-    JWT_ACCESS_TTL_SECONDS: int = 900  # 15 minutes
-    JWT_REFRESH_TTL_SECONDS: int = 2592000  # 30 days
+    JWT_ACCESS_TTL_SECONDS: int = 900       # 15 минут
+    JWT_REFRESH_TTL_SECONDS: int = 2592000  # 30 дней
 
-    model_config = {"env_prefix": "SECURE_"}
+    model_config = SettingsConfigDict(env_prefix="SECURE_")
 
 
 class ProviderSettings(BaseSettings):
@@ -20,7 +27,7 @@ class ProviderSettings(BaseSettings):
     YANDEX_CLIENT_SECRET: str = ""
     YANDEX_REDIRECT_URI: str = ""
 
-    model_config = {"env_prefix": "PROVIDER_"}
+    model_config = SettingsConfigDict(env_prefix="PROVIDER_")
 
 
 class DatabaseSettings(BaseSettings):

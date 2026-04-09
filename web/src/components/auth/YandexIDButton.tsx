@@ -1,18 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Box, Button, CircularProgress, Alert } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, CircularProgress, Alert, Button } from '@mui/material';
 import {
-    loadYandexIDSDK,
-    initYandexIDWidget,
     parseTokenFromUrl,
     clearTokenFromUrl,
     createYandexOAuthUrl
 } from '../../utils/yandex-id';
 
 /**
- * Yandex ID Button Component
- * Компонент виджета авторизации через Yandex ID
+ * Simplified Yandex ID Button Component using direct iframe approach
  * 
- * Пробует использовать виджет Мгновенный вход, если не получается - показывает кнопку
+ * Стратегия:
+ * 1. Создаем контейнер для виджета
+ * 2. Загружаем Yandex SDK
+ * 3. Инициализируем виджет с view='button'
+ * 4. Если не работает - показываем fallback кнопку
  */
 
 interface YandexIDButtonProps {
@@ -28,14 +29,12 @@ export const YandexIDButton: React.FC<YandexIDButtonProps> = ({
     clientId,
     redirectUri,
 }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [showButton, setShowButton] = useState(false);
-    const initAttempted = useRef(false);
+    const [useFallback, setUseFallback] = useState(false);
 
     useEffect(() => {
-        // Проверяем, есть ли токен в URL (после редиректа)
+        // Проверяем токен в URL (после редиректа)
         const token = parseTokenFromUrl();
         if (token) {
             clearTokenFromUrl();
@@ -43,55 +42,124 @@ export const YandexIDButton: React.FC<YandexIDButtonProps> = ({
             return;
         }
 
-        if (initAttempted.current) {
-            return;
-        }
-        initAttempted.current = true;
-
-        // Загружаем и инициализируем Yandex ID SDK
-        const initSDK = async () => {
+        // Загружаем SDK
+        const loadSDK = async () => {
             try {
-                // Загружаем SDK
-                await loadYandexIDSDK({
-                    onload: () => {
-                        console.log('Yandex ID SDK loaded successfully');
-                    },
-                });
-
-                // Ждем небольшую задержку для полной инициализации
-                await new Promise(resolve => setTimeout(resolve, 200));
-
-                try {
-                    // Пробуем виджет Мгновенный вход
-                    await initYandexIDWidget('yandex-id-container', {
-                        clientId,
-                        redirectUri,
-                    });
-
-                    // Проверяем через 500мс, отрисовался ли виджет
-                    setTimeout(() => {
-                        const container = document.getElementById('yandex-id-container');
-                        const hasContent = container &&
-                            (container.querySelector('iframe') ||
-                                container.querySelector('button') ||
-                                (container.innerHTML.trim().length > 100));
-
-                        if (!hasContent) {
-                            console.log('Suggest widget is empty, showing button fallback');
-                            setShowButton(true);
-                        }
-                        setIsLoading(false);
-                    }, 500);
-                } catch (widgetError) {
-                    // Если виджет не сработал, пробуем кнопку
-                    console.warn('Widget failed, trying button:', widgetError);
-                    setShowButton(true);
-                    setIsLoading(false);
+                // Проверяем, загружен ли уже SDK
+                if (window.YaAuthSuggest) {
+                    console.log('Yandex SDK already loaded');
+                    initWidget();
+                    return;
                 }
+
+                // Загружаем SDK
+                const script = document.createElement('script');
+                script.src = 'https://yastatic.net/s3/passport-sdk/autofill/v1/sdk-suggest-with-polyfills-latest.js';
+                script.async = true;
+                script.onload = () => {
+                    console.log('Yandex SDK loaded');
+                    // Даем SDK время на инициализацию
+                    setTimeout(initWidget, 200);
+                };
+                script.onerror = () => {
+                    console.error('Failed to load Yandex SDK');
+                    setUseFallback(true);
+                    setIsLoading(false);
+                };
+                document.head.appendChild(script);
             } catch (err) {
-                console.error('Failed to initialize Yandex ID:', err);
-                setError('Не удалось загрузить виджет авторизации');
-                setShowButton(true);
+                console.error('SDK load error:', err);
+                setUseFallback(true);
+                setIsLoading(false);
+            }
+        };
+
+        // Инициализируем виджет
+        const initWidget = async () => {
+            if (!window.YaAuthSuggest) {
+                console.error('YaAuthSuggest not available');
+                setUseFallback(true);
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                console.log('Initializing Yandex widget with Button view...');
+
+                const result = await window.YaAuthSuggest.init(
+                    {
+                        client_id: clientId,
+                        response_type: 'token',
+                        redirect_uri: redirectUri,
+                    },
+                    window.location.origin,
+                    {
+                        view: 'button',
+                        parentId: 'yandex-widget-container',
+                        buttonView: 'main',
+                        buttonTheme: 'light',
+                        buttonSize: 'l',
+                        buttonBorderRadius: 12,
+                    }
+                );
+
+                console.log('Widget init result:', result);
+
+                if (result.status === 'error') {
+                    console.warn('Widget returned error:', result.code);
+                    // Даже если статус error, пробуем вызвать handler
+                    // Он может отрисовать кнопку
+                    if (result.handler) {
+                        try {
+                            await result.handler();
+                            console.log('Handler executed despite error status');
+                        } catch (handlerError) {
+                            console.error('Handler error:', handlerError);
+                        }
+                    }
+
+                    // Проверяем через 1 секунду, отрисовалось ли что-то
+                    setTimeout(() => {
+                        const container = document.getElementById('yandex-widget-container');
+                        const hasContent = container && container.children.length > 0;
+
+                        if (hasContent) {
+                            console.log('Widget rendered despite error status');
+                            setIsLoading(false);
+                        } else {
+                            console.log('No widget content, using fallback');
+                            setUseFallback(true);
+                            setIsLoading(false);
+                        }
+                    }, 1000);
+                    return;
+                }
+
+                // Вызываем handler для отрисовки
+                if (result.handler) {
+                    await result.handler();
+                    console.log('Widget handler called successfully');
+                }
+
+                // Ждем отрисовки
+                setTimeout(() => {
+                    const container = document.getElementById('yandex-widget-container');
+                    const hasContent = container && container.children.length > 0;
+
+                    if (hasContent) {
+                        console.log('Widget rendered successfully');
+                        setIsLoading(false);
+                    } else {
+                        console.log('Widget container is empty, using fallback');
+                        setUseFallback(true);
+                        setIsLoading(false);
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error('Widget init error:', err);
+                setError('Ошибка инициализации виджета');
+                setUseFallback(true);
                 setIsLoading(false);
 
                 if (onError && err instanceof Error) {
@@ -100,48 +168,32 @@ export const YandexIDButton: React.FC<YandexIDButtonProps> = ({
             }
         };
 
-        initSDK();
+        loadSDK();
     }, [clientId, redirectUri, onSuccess, onError]);
 
-    /**
-     * Обработчик клика по кнопке - открываем OAuth
-     */
-    const handleButtonClick = () => {
+    const handleFallbackClick = () => {
         const oauthUrl = createYandexOAuthUrl({ clientId, redirectUri });
         window.location.href = oauthUrl;
     };
 
-    // Показываем fallback при ошибке
-    if (error) {
-        return (
-            <Box>
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                    {error}
-                </Alert>
-                <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    onClick={handleButtonClick}
-                    sx={{
-                        backgroundColor: '#ffcc00',
-                        color: '#000',
-                        fontWeight: 600,
-                        '&:hover': {
-                            backgroundColor: '#e6b800',
-                        },
-                    }}
-                >
-                    Войти через Яндекс ID
-                </Button>
-            </Box>
-        );
-    }
-
     return (
         <Box sx={{ width: '100%', position: 'relative', minHeight: '60px' }}>
-            {/* Loading overlay */}
-            {isLoading && (
+            {/* Yandex Widget Container - всегда в DOM */}
+            <Box
+                id="yandex-widget-container"
+                sx={{
+                    width: '100%',
+                    minHeight: '60px',
+                    display: useFallback ? 'none' : 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    opacity: isLoading ? 0 : 1,
+                    transition: 'opacity 0.3s ease',
+                }}
+            />
+
+            {/* Loading Spinner */}
+            {isLoading && !useFallback && (
                 <Box
                     sx={{
                         position: 'absolute',
@@ -153,39 +205,26 @@ export const YandexIDButton: React.FC<YandexIDButtonProps> = ({
                         justifyContent: 'center',
                         alignItems: 'center',
                         minHeight: '60px',
-                        width: '100%',
-                        zIndex: 1,
-                        backgroundColor: 'rgba(0,0,0,0.02)',
                     }}
                 >
                     <CircularProgress size={32} />
                 </Box>
             )}
 
-            {/* Yandex ID widget container - всегда в DOM */}
-            {!showButton && (
-                <Box
-                    id="yandex-id-container"
-                    ref={containerRef}
-                    sx={{
-                        width: '100%',
-                        minHeight: '60px',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        opacity: isLoading ? 0 : 1,
-                        transition: 'opacity 0.3s ease',
-                    }}
-                />
+            {/* Error Alert */}
+            {error && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
             )}
 
-            {/* Fallback button - показывается если виджет пустой */}
-            {showButton && !isLoading && (
+            {/* Fallback Button */}
+            {useFallback && (
                 <Button
                     variant="contained"
                     fullWidth
                     size="large"
-                    onClick={handleButtonClick}
+                    onClick={handleFallbackClick}
                     sx={{
                         backgroundColor: '#ffcc00',
                         color: '#000',

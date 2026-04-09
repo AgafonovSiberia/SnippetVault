@@ -13,6 +13,11 @@ export class ApiClient {
     private accessToken: string | null = null;
 
     constructor() {
+        // Загружаем токен из LocalStorage при инициализации
+        if (typeof window !== 'undefined') {
+            this.accessToken = localStorage.getItem('access_token');
+        }
+
         this.client = axios.create({
             baseURL: API_BASE_URL,
             timeout: 10000,
@@ -48,6 +53,16 @@ export class ApiClient {
             async (error: AxiosError) => {
                 const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+                // Не пытаемся обновлять токен для самого endpoint refresh
+                if (originalRequest.url?.includes('/auth/refresh')) {
+                    // Если refresh не удался - очищаем токен и редиректим
+                    this.clearAccessToken();
+                    if (window.location.pathname !== '/') {
+                        window.location.href = '/';
+                    }
+                    return Promise.reject(error);
+                }
+
                 // Если получили 401 и это не повторный запрос
                 if (error.response?.status === 401 && !originalRequest._retry) {
                     originalRequest._retry = true;
@@ -67,7 +82,9 @@ export class ApiClient {
                     } catch (refreshError) {
                         // Если обновление токена не удалось - очищаем токен и перенаправляем на логин
                         this.clearAccessToken();
-                        window.location.href = '/';
+                        if (window.location.pathname !== '/') {
+                            window.location.href = '/';
+                        }
                         return Promise.reject(refreshError);
                     }
                 }

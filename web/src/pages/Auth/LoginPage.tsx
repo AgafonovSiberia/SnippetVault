@@ -10,7 +10,7 @@ import {
     alpha,
 } from '@mui/material';
 import { Code as CodeIcon } from '@mui/icons-material';
-import { YandexIDButton } from '../../components/auth';
+import { SimpleYandexButton } from '../../components/auth/SimpleYandexButton';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
@@ -40,10 +40,6 @@ export const LoginPage: React.FC = () => {
         }
     };
 
-    const handleError = (err: Error) => {
-        console.error('Yandex ID error:', err);
-        setError('Ошибка при загрузке виджета авторизации');
-    };
 
     return (
         <Box
@@ -52,30 +48,40 @@ export const LoginPage: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+                background: `radial-gradient(ellipse at top, ${alpha(theme.palette.primary.dark, 0.25)} 0%, ${theme.palette.background.default} 50%), radial-gradient(ellipse at bottom, ${alpha(theme.palette.secondary.dark, 0.2)} 0%, ${theme.palette.background.default} 50%)`,
                 position: 'relative',
                 overflow: 'hidden',
                 '&::before': {
                     content: '""',
                     position: 'absolute',
-                    top: '-10%',
-                    right: '-10%',
-                    width: '40%',
-                    height: '40%',
+                    top: '10%',
+                    right: '15%',
+                    width: '500px',
+                    height: '500px',
                     borderRadius: '50%',
-                    background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.2)} 0%, transparent 70%)`,
-                    filter: 'blur(80px)',
+                    background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.25)} 0%, transparent 70%)`,
+                    filter: 'blur(100px)',
+                    animation: 'float 8s ease-in-out infinite',
                 },
                 '&::after': {
                     content: '""',
                     position: 'absolute',
-                    bottom: '-10%',
-                    left: '-10%',
-                    width: '40%',
-                    height: '40%',
+                    bottom: '15%',
+                    left: '10%',
+                    width: '400px',
+                    height: '400px',
                     borderRadius: '50%',
-                    background: `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.2)} 0%, transparent 70%)`,
-                    filter: 'blur(80px)',
+                    background: `radial-gradient(circle, ${alpha(theme.palette.info.main, 0.2)} 0%, transparent 70%)`,
+                    filter: 'blur(100px)',
+                    animation: 'float 10s ease-in-out infinite reverse',
+                },
+                '@keyframes float': {
+                    '0%, 100%': {
+                        transform: 'translate(0, 0)',
+                    },
+                    '50%': {
+                        transform: 'translate(30px, -30px)',
+                    },
                 },
             }}
         >
@@ -83,14 +89,15 @@ export const LoginPage: React.FC = () => {
                 <Paper
                     elevation={0}
                     sx={{
-                        p: { xs: 3, sm: 5 },
-                        borderRadius: 4,
-                        backdropFilter: 'blur(20px)',
-                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
-                        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                        p: { xs: 4, sm: 6 },
+                        borderRadius: 3,
+                        backdropFilter: 'blur(40px)',
+                        backgroundColor: alpha(theme.palette.background.paper, 0.85),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
                         position: 'relative',
                         zIndex: 1,
-                        boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.2)}`,
+                        boxShadow: `0 20px 60px ${alpha(theme.palette.common.black, 0.5)}`,
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.paper, 0.8)} 100%)`,
                     }}
                 >
                     <Stack spacing={4} alignItems="center">
@@ -100,31 +107,31 @@ export const LoginPage: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 2,
-                                mb: 2,
+                                mb: 1,
                             }}
                         >
                             <Box
                                 sx={{
-                                    width: 64,
-                                    height: 64,
-                                    borderRadius: 3,
+                                    width: 56,
+                                    height: 56,
+                                    borderRadius: 2.5,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                                    boxShadow: `0 4px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-                                    animation: 'pulse 2s ease-in-out infinite',
-                                    '@keyframes pulse': {
+                                    boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.5)}`,
+                                    animation: 'glow 3s ease-in-out infinite',
+                                    '@keyframes glow': {
                                         '0%, 100%': {
-                                            transform: 'scale(1)',
+                                            boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.5)}`,
                                         },
                                         '50%': {
-                                            transform: 'scale(1.05)',
+                                            boxShadow: `0 8px 32px ${alpha(theme.palette.primary.main, 0.8)}`,
                                         },
                                     },
                                 }}
                             >
-                                <CodeIcon sx={{ fontSize: 36, color: 'white' }} />
+                                <CodeIcon sx={{ fontSize: 32, color: 'white' }} />
                             </Box>
                             <Typography
                                 variant="h3"
@@ -143,10 +150,19 @@ export const LoginPage: React.FC = () => {
 
                         {/* Welcome Text */}
                         <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="h5" gutterBottom fontWeight={600}>
+                            <Typography
+                                variant="h5"
+                                gutterBottom
+                                fontWeight={600}
+                                sx={{ color: 'text.primary' }}
+                            >
                                 Добро пожаловать!
                             </Typography>
-                            <Typography variant="body1" color="text.secondary">
+                            <Typography
+                                variant="body1"
+                                color="text.secondary"
+                                sx={{ fontSize: '0.95rem' }}
+                            >
                                 Сохраняйте, организуйте и находите ваши сниппеты кода
                             </Typography>
                         </Box>
@@ -158,6 +174,8 @@ export const LoginPage: React.FC = () => {
                                 sx={{
                                     width: '100%',
                                     borderRadius: 2,
+                                    backgroundColor: alpha(theme.palette.error.main, 0.1),
+                                    border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
                                 }}
                             >
                                 {error}
@@ -165,18 +183,21 @@ export const LoginPage: React.FC = () => {
                         )}
 
                         {/* Yandex ID Button */}
-                        <Box sx={{ width: '60%' }}>
-                            <YandexIDButton
+                        <Box sx={{ width: '100%', maxWidth: '320px' }}>
+                            <SimpleYandexButton
                                 onSuccess={handleSuccess}
-                                onError={handleError}
                                 clientId={YANDEX_CLIENT_ID}
                                 redirectUri={YANDEX_REDIRECT_URI}
                             />
                         </Box>
 
                         {/* Additional Info */}
-                        <Box sx={{ textAlign: 'center', pt: 2 }}>
-                            <Typography variant="caption" color="text.secondary">
+                        <Box sx={{ textAlign: 'center', pt: 1 }}>
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ fontSize: '0.8rem' }}
+                            >
                                 Используя сервис, вы соглашаетесь с условиями использования
                             </Typography>
                         </Box>

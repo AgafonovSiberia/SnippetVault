@@ -9,36 +9,36 @@ export const theme = createTheme({
     palette: {
         mode: 'dark',
         primary: {
-            main: '#90caf9',
-            light: '#e3f2fd',
-            dark: '#42a5f5',
-            contrastText: '#000',
+            main: '#8b5cf6', // Фиолетовый как на референсе
+            light: '#a78bfa',
+            dark: '#7c3aed',
+            contrastText: '#fff',
         },
         secondary: {
-            main: '#ce93d8',
-            light: '#f3e5f5',
-            dark: '#ab47bc',
-            contrastText: '#000',
+            main: '#a78bfa', // Светло-фиолетовый
+            light: '#c4b5fd',
+            dark: '#8b5cf6',
+            contrastText: '#fff',
         },
         background: {
-            default: '#0a1929',
-            paper: '#132f4c',
+            default: '#1a1a2e', // Темно-синий вместо черного
+            paper: '#252545', // Темно-фиолетовый серый для карточек
         },
         text: {
-            primary: '#ffffff',
-            secondary: '#b2bac2',
+            primary: '#f0f0f0',
+            secondary: '#a8a8b8', // Более светлый серый текст
         },
         error: {
-            main: '#f44336',
+            main: '#ef4444',
         },
         warning: {
-            main: '#ff9800',
+            main: '#f59e0b',
         },
         info: {
-            main: '#2196f3',
+            main: '#60a5fa', // Синий как на референсе
         },
         success: {
-            main: '#4caf50',
+            main: '#10b981',
         },
     },
     typography: {
